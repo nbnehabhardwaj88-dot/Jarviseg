@@ -1,0 +1,85 @@
+<style>
+  body {
+    background-color: #050a14;
+    color: #00f3ff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: sans-serif;
+  }
+
+  /* This is the Core styling */
+  #core, .core {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #00f3ff, #0051ff);
+    box-shadow: 0 0 25px #00f3ff;
+    cursor: pointer;
+    animation: pulse 2s infinite alternate;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); box-shadow: 0 0 25px #00f3ff; }
+    100% { transform: scale(1.15); box-shadow: 0 0 60px #00f3ff; }
+  }
+body {
+margin: 0;
+height: 100vh;
+background-color: #050a14;
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+font-family: Arial, sans-serif;
+color: #00f3ff;
+user-select: none;
+}
+
+#jarvis-core {
+width: 180px;
+height: 180px;
+border-radius: 50%;
+background: radial-gradient(circle, #00f3ff 0%, #004466 70%, #001122 100%);
+border: 4px solid #00f3ff;
+box-shadow: 0 0 25px #00f3ff;
+cursor: pointer;
+display: flex;
+justify-content: center;
+align-items: center;
+font-weight: bold;
+font-size: 18px;
+letter-spacing: 2px;
+color: #ffffff;
+text-shadow: 0 0 10px #000;
+transition: transform 0.2s;
+}
+
+#jarvis-core:active {
+transform: scale(0.95);
+}
+
+.active-pulse {
+animation: pulse 1.2s infinite alternate;
+}
+
+@keyframes pulse {
+0% {
+transform: scale(1);
+box-shadow: 0 0 25px #00f3ff;
+}
+100% {
+transform: scale(1.15);
+box-shadow: 0 0 60px #00f3ff;
+}
+}
+
+#status {
+margin-top: 40px;
+font-size: 16px;
+text-align: center;
+padding: 0 20px;
+min-height: 24px;
+}</style>0% { transform: scale(1); box-shadow: 0 0 25px #00f3ff; } 100% { transform: scale(1.15); box-shadow: 0 0 60px #00f3ff; } } </style> </head> <body> <div class="hud-container"> <div class="ring"></div> <div class="arc-reactor" id="reactor" onclick="toggleSystem()"> <div class="core"></div> </div> </div> <div id="status">Click Core to Boot System</div> <div id="log">Say <strong>"Hey Jarvis"</strong> followed by your command once booted.</div> <div class="controls"> <input type="password" id="apiKey" placeholder="Optional: Paste Gemini API Key here"> <button onclick="saveKey()">Save Key</button> </div> <script> let GEMINI_API_KEY = localStorage.getItem("jarvis_gemini_key") || ""; if (GEMINI_API_KEY) document.getElementById("apiKey").value = GEMINI_API_KEY; const reactor = document.getElementById('reactor'); const statusText = document.getElementById('status'); const logText = document.getElementById('log'); const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; const recognition = new SpeechRecognition(); recognition.lang = 'en-US'; recognition.continuous = true; recognition.interimResults = false; let isRunning = false; let isSpeaking = false; function saveKey() { GEMINI_API_KEY = document.getElementById("apiKey").value.trim(); localStorage.setItem("jarvis_gemini_key", GEMINI_API_KEY); speak("API key updated, Sir."); } function toggleSystem() { if (!isRunning) { isRunning = true; recognition.start(); statusText.innerText = "Standby (Say 'Hey Jarvis')"; speak("Systems online. Ready for your command, Sir."); } else { isRunning = false; recognition.stop(); reactor.classList.remove('listening', 'speaking'); statusText.innerText = "System Offline"; } } recognition.onresult = async (event) => { if (isSpeaking) return; const lastIndex = event.results.length - 1; const transcript = event.results[lastIndex][0].transcript.trim(); const lower = transcript.toLowerCase(); // Wake-word check if (lower.includes("jarvis")) { reactor.classList.add('listening'); const command = lower.replace(/hey jarvis|jarvis/g, "").trim(); if (!command) { statusText.innerText = "Listening..."; speak("Yes, Sir?"); return; } logText.innerHTML = `<strong>You:</strong> ${transcript}`; statusText.innerText = "Processing..."; const reply = await processCommand(command); reactor.classList.remove('listening'); logText.innerHTML += `<br><br><strong>JARVIS:</strong> ${reply}`; speak(reply); } }; recognition.onend = () => { // Automatically restart listening for wake-word if system is active if (isRunning && !isSpeaking) { try { recognition.start(); } catch (e) {} } }; async function processCommand(cmd) { // Offline Built-in Commands if (cmd.includes("time")) { return `It is currently ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}, Sir.`; } if (cmd.includes("date") || cmd.includes("day")) { return `Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}, Sir.`; } if (cmd.includes("open youtube")) { window.open("https://youtube.com", "_blank"); return "Opening YouTube now, Sir."; } if (cmd.includes("search for")) { const query = cmd.split("search for")[1].trim(); window.open(`https://google.com{encodeURIComponent(query)}`, "_blank"); return `Searching Google for ${query}, Sir.`; } // Gemini AI Brain (if key is provided) if (GEMINI_API_KEY) { try { const url = `https://googleapis.com{GEMINI_API_KEY}`; const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ systemInstruction: { parts: [{ text: "You are JARVIS, a polite, witty, and concise AI butler. Address the user as Sir. Respond in 1 to 2 short sentences without markdown symbols." }] }, contents: [{ parts: [{ text: cmd }] }] }) }); const data = await response.json(); return data.candidates[0].content.parts[0].text; } catch (err) { return "I encountered a network error reaching the Gemini mainframe, Sir."; } } return "I heard you, Sir, though my cloud AI is disconnected. Paste a Gemini API key below for full conversation."; } function speak(text) { isSpeaking = true; recognition.stop(); // Pause mic so Jarvis doesn't hear himself reactor.classList.add('speaking'); statusText.innerText = "Speaking..."; const utterance = new SpeechSynthesisUtterance(text); const voices = window.speechSynthesis.getVoices(); const britishVoice = voices.find(v => v.lang.includes('en-GB') && v.name.includes('Male')) || voices.find(v => v.lang.includes('en-GB')); if (britishVoice) utterance.voice = britishVoice; utterance.pitch = 0.95; utterance.rate = 1.05; utterance.onend = () => { isSpeaking = false; reactor.classList.remove('speaking'); if (isRunning) { statusText.innerText = "Standby (Say 'Hey Jarvis')"; try { recognition.start(); } catch (e) {} } }; window.speechSynthesis.speak(utterance); } // Pre-load voices window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices(); </script> </body> </html>
